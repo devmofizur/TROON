@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "624747205743",
+    "project_id": "troonapp",
+    "storage_bucket": "troonapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:624747205743:android:78c967da04568f0529299a",
+        "android_client_info": {
+          "package_name": "com.troon.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "624747205743-mq545uko0mfd0g0f3mn6tk48lp1192c6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.troon.app",
+            "certificate_hash": "24bf4d6aa21e358b5a7fb0985b9ec1022eff8c56"
+          }
+        },
+        {
+          "client_id": "624747205743-ak70beh3mcljkioomll2rkffvncgvn3u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzpa927mY4sX25y8mE2K9Lp3qtbYt4n1g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "624747205743-ak70beh3mcljkioomll2rkffvncgvn3u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
