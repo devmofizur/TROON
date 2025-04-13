@@ -1,6 +1,7 @@
 package com.troon.app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -8,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,11 +24,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import androidx.compose.material3.Text
+
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 
 class MainActivity : ComponentActivity() {
 
@@ -43,6 +48,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+
+
         setContent {
             auth = FirebaseAuth.getInstance()
 
@@ -53,13 +61,18 @@ class MainActivity : ComponentActivity() {
                 .build()
             googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-            if (auth.currentUser != null) {
+            val account = GoogleSignIn.getLastSignedInAccount(LocalContext.current)
+
+            // Check if the user is signed in
+            if (account != null) {
+                // If the user is already signed in, navigate to the DashboardActivity
                 val intent = Intent(this, DashboardActivity::class.java)
+                intent.putExtra("displayName", account.displayName)
+                intent.putExtra("photoUrl", account.photoUrl.toString())
                 startActivity(intent)
                 finish()
-
             } else {
-                // User is not logged in
+                // If user is not logged in, show the sign-in screen
                 SignInScreen(googleSignInClient)
             }
         }
@@ -73,6 +86,8 @@ class MainActivity : ComponentActivity() {
                 .addOnCompleteListener(this) { task ->
                     if (task.isSuccessful) {
                         val intent = Intent(this, DashboardActivity::class.java)
+                        intent.putExtra("displayName", account.displayName)
+                        intent.putExtra("photoUrl", account.photoUrl.toString())
                         startActivity(intent)
                         finish()
 
