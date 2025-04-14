@@ -1,7 +1,6 @@
 package com.troon.app
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -140,7 +139,7 @@ class MainActivity : ComponentActivity() {
                     shape = RoundedCornerShape(50),  // Rounded corners
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 14.dp)
                         .height(48.dp)
                 ) {
                     // Google Logo + Text

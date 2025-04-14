@@ -2,11 +2,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.troon.app">
 
-    <!-- Digital Wellbeing Permission -->
+    <!-- Let Play Store know this feature is optional -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
-
-
-
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_SMS" />
 
     <application
         android:hardwareAccelerated="true"
@@ -18,9 +22,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TROON"
-        tools:targetApi="31">
+        tools:targetApi="35">
 
-
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,11 +36,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Dashboard Activity -->
         <activity
             android:name=".DashboardActivity"
             android:exported="true"
             android:label="DashboardActivity"
-            android:theme="@style/Theme.TROON" />
-    </application>
+            android:theme="@style/Theme.AppCompat.Light.DarkActionBar" />
 
+
+    </application>
 </manifest>
