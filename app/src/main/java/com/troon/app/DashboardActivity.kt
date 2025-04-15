@@ -15,6 +15,7 @@ import android.provider.CallLog
 import android.provider.Settings
 import android.provider.Telephony
 import android.app.NotificationManager
+import android.os.Build
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.Toast
@@ -72,31 +73,35 @@ class DashboardActivity : ComponentActivity() {
     private var contentShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
         displayName = intent.getStringExtra("displayName") ?: "User"
         photoUrl = intent.getStringExtra("photoUrl") ?: ""
-        if (isUsageStatsPermissionGranted()) {
-            showUsageStats()
-        } else {
-            showPermissionDialog {
-                promptForUsageStatsPermission()
+
+        setContent {
+            if (isUsageStatsPermissionGranted()) {
+                UsageStatsScreen(displayName, photoUrl)
+            } else {
+                PermissionBottomSheet {
+                    // Launch settings for permission
+                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                }
             }
         }
     }
+
     override fun onResume() {
         super.onResume()
 
         if (isUsageStatsPermissionGranted() && !contentShown) {
-            showUsageStats()
+            setContent {
+                UsageStatsScreen(displayName, photoUrl)
+            }
         }
     }
 
-
     private fun isUsageStatsPermissionGranted(): Boolean {
-
         val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             appOps.unsafeCheckOpNoThrow(
                 AppOpsManager.OPSTR_GET_USAGE_STATS,
                 Process.myUid(),
@@ -109,64 +114,79 @@ class DashboardActivity : ComponentActivity() {
                 packageName
             ) == AppOpsManager.MODE_ALLOWED
         }
-
     }
 
-    private fun showPermissionDialog(onProceed: () -> Unit) {
-        try {
-            AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat)
-                .setTitle("Permission Required")
-                .setMessage("To display app usage statistics, TROON needs permission to access usage data. Please allow this in the next screen.")
-                .setPositiveButton("Allow") { _, _ ->
-                    val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                    startActivity(intent)
-                    onProceed()
-                }
-                .setNegativeButton("Cancel") { dialog, _ ->
-                    dialog.dismiss()
-                }
-                .show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Dialog failed to show: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun promptForUsageStatsPermission() {
-        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-
-    }
-
-    private fun showUsageStats() {
-
+    @Composable
+    fun UsageStatsScreen(displayName: String, photoUrl: String) {
         val usageStatsManager = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_MONTH, -1)
+        val calendar = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_MONTH, -1)
+        }
 
-        val usageStatsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            calendar.timeInMillis,
-            System.currentTimeMillis()
-
-        ).filter { it.totalTimeInForeground > 0 }
+        val usageStatsList = remember {
+            usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                calendar.timeInMillis,
+                System.currentTimeMillis()
+            ).filter { it.totalTimeInForeground > 0 }
+                .sortedByDescending { it.totalTimeInForeground }
+        }
 
         if (usageStatsList.isNotEmpty()) {
-            val sortedList = usageStatsList.sortedByDescending { it.totalTimeInForeground }
-            if (!contentShown) {
-                contentShown = true
-                setContent {
-
-                    StatisticsDashboard(displayName, photoUrl, sortedList)
-                }
-            }
-
+            contentShown = true
+            StatisticsDashboard(displayName, photoUrl, usageStatsList)
         } else {
             Toast.makeText(this, "No usage stats available", Toast.LENGTH_SHORT).show()
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun PermissionBottomSheet(onAllowClick: () -> Unit) {
+        val sheetState = rememberModalBottomSheetState()
+        val showSheet = remember { mutableStateOf(true) }
 
+        if (showSheet.value) {
+            ModalBottomSheet(
+                onDismissRequest = { finish() },
+                sheetState = sheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Permission Required",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Text(
+                        text = "TROON needs access to usage data to show your app usage stats.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(onClick = { finish() }) {
+                            Text("Cancel")
+                        }
+                        Button(onClick = {
+                            showSheet.value = false
+                            onAllowClick()
+                        }) {
+                            Text("Allow")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -231,7 +251,7 @@ fun StatisticsDashboard(displayName: String, photoUrl: String, usageStatsList: L
         ) {
             ScreenTimeCard(totalMinutes = 360, usedMinutes = 240)
             AppUsageCard(usageStatsList, packageManager, totalUsage)
-            CallsMessagesBox(callCount, smsCount, notificationCount)
+            ActivityBox(callCount, smsCount, notificationCount)
         }
     }
 }
@@ -412,7 +432,7 @@ fun StatCard(appName: String, usageTime: String, progress: Float, icon: Drawable
                 progress = animatedProgress,
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(80.dp)
+                    .width(120.dp)
                     .padding(end = 4.dp),
                 color = Color(0xFF2B652C),
             )
@@ -497,7 +517,8 @@ fun AppUsageCard(usageStatsList: List<UsageStats>, packageManager: PackageManage
         modifier = Modifier
             .fillMaxWidth()
             .height(220.dp)
-            .clip(RoundedCornerShape(16.dp)),
+            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = 8.dp),
         colors = CardDefaults.cardColors(Color(0xFFFAFAFA))
     ) {
         LazyColumn(modifier = Modifier.padding(10.dp)) {
@@ -535,8 +556,10 @@ fun AppUsageCard(usageStatsList: List<UsageStats>, packageManager: PackageManage
         }
     }
 }
+
+
 @Composable
-fun CallsMessagesBox(callCount: Int, smsCount: Int, notificationCount: Int) {
+fun ActivityBox(callCount: Int, smsCount: Int, notificationCount: Int) {
     Card(
         modifier = Modifier
             .fillMaxWidth()

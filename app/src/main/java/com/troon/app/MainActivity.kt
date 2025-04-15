@@ -11,35 +11,30 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import androidx.compose.material3.Text
-
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
 
-    // Register the activity result launcher inside the activity class
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         handleSignInResult(task)
@@ -48,31 +43,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Initialize Firebase Auth and Google Sign-In client
+        auth = FirebaseAuth.getInstance()
 
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("624747205743-ak70beh3mcljkioomll2rkffvncgvn3u.apps.googleusercontent.com")
+            .requestEmail()
+            .build()
 
-        setContent {
-            auth = FirebaseAuth.getInstance()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-            // Configure Google Sign-In
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken("624747205743-ak70beh3mcljkioomll2rkffvncgvn3u.apps.googleusercontent.com")  // Replace with your web client ID
-                .requestEmail()
-                .build()
-            googleSignInClient = GoogleSignIn.getClient(this, gso)
+        val account = GoogleSignIn.getLastSignedInAccount(this)
 
-            val account = GoogleSignIn.getLastSignedInAccount(LocalContext.current)
-
-            // Check if the user is signed in
-            if (account != null) {
-                // If the user is already signed in, navigate to the DashboardActivity
-                val intent = Intent(this, DashboardActivity::class.java)
-                intent.putExtra("displayName", account.displayName)
-                intent.putExtra("photoUrl", account.photoUrl.toString())
-                startActivity(intent)
-                finish()
-            } else {
-                // If user is not logged in, show the sign-in screen
-                SignInScreen(googleSignInClient)
+        if (account != null) {
+            navigateToDashboard(account)
+        } else {
+            setContent {
+                SignInScreen {
+                    val signInIntent = googleSignInClient.signInIntent
+                    googleSignInLauncher.launch(signInIntent)
+                }
             }
         }
     }
@@ -82,17 +72,11 @@ class MainActivity : ComponentActivity() {
             val account = task.getResult(ApiException::class.java)
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
             auth.signInWithCredential(credential)
-                .addOnCompleteListener(this) { task ->
-                    if (task.isSuccessful) {
-                        val intent = Intent(this, DashboardActivity::class.java)
-                        intent.putExtra("displayName", account.displayName)
-                        intent.putExtra("photoUrl", account.photoUrl.toString())
-                        startActivity(intent)
-                        finish()
-
+                .addOnCompleteListener(this) { signInTask ->
+                    if (signInTask.isSuccessful) {
+                        navigateToDashboard(account)
                     } else {
-                        // If sign-in fails
-                        showError(task.exception?.message)
+                        showError(signInTask.exception?.message)
                     }
                 }
         } catch (e: ApiException) {
@@ -100,63 +84,83 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun navigateToDashboard(account: GoogleSignInAccount) {
+        val intent = Intent(this, DashboardActivity::class.java).apply {
+            putExtra("displayName", account.displayName)
+            putExtra("photoUrl", account.photoUrl?.toString())
+        }
+        startActivity(intent)
+        finish()
+    }
+
     private fun showError(message: String?) {
         message?.let {
             Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
         }
     }
+}
 
-    @Composable
-    fun SignInScreen(googleSignInClient: GoogleSignInClient) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Background image
-            Image(
-                painter = painterResource(id = R.drawable.background_image), // Replace with your background image resource
-                contentDescription = "Background Image",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SignInScreen(onSignInClick: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState()
+    val showSheet = remember { mutableStateOf(true) }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom // Align the button at the bottom
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // Background image
+        Image(
+            painter = painterResource(id = R.drawable.background_image),
+            contentDescription = "Background Image",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        // Show Bottom Sheet
+        if (showSheet.value) {
+            ModalBottomSheet(
+                onDismissRequest = { showSheet.value = false },
+                sheetState = sheetState,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Spacer to push the button to the bottom
-                Spacer(modifier = Modifier.weight(1f))
-
-                Button(
-                    onClick = {
-                        val signInIntent = googleSignInClient.signInIntent
-                        // Launch the Google sign-in intent
-                        googleSignInLauncher.launch(signInIntent)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F0F0)),  // Light grey color
-                    shape = RoundedCornerShape(50),  // Rounded corners
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp)
-                        .height(48.dp)
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Google Logo + Text
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.google_logo), // Replace with your Google logo resource
-                            contentDescription = "Google Logo",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Continue with Google",
-                            style = TextStyle(
-                                fontFamily = FontFamily(Font(R.font.google_sans)), // Use Google Sans font
-                                color = Color.Black // Text color set to black
+                    Text(
+                        text = "Welcome to Troon",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            onSignInClick()
+                            showSheet.value = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F0F0)),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.google_logo),
+                                contentDescription = "Google Logo",
+                                modifier = Modifier.size(24.dp)
                             )
-                        )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Continue with Google",
+                                style = TextStyle(
+                                    fontFamily = FontFamily(Font(R.font.google_sans)),
+                                    color = Color.Black
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -164,13 +168,4 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun PreviewSignInScreen() {
-    SignInScreen(googleSignInClient = GoogleSignIn.getClient(LocalContext.current, GoogleSignInOptions.DEFAULT_SIGN_IN))
-}
 
-@Composable
-fun SignInScreen(googleSignInClient: GoogleSignInClient) {
-    TODO("Not yet implemented")
-}

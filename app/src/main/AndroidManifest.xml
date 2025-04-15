@@ -2,15 +2,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.troon.app">
 
-    <!-- Let Play Store know this feature is optional -->
+    <!-- Optional hardware feature -->
     <uses-feature
         android:name="android.hardware.telephony"
         android:required="false" />
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_SMS" />
+
 
     <application
         android:hardwareAccelerated="true"
@@ -43,6 +45,7 @@
             android:label="DashboardActivity"
             android:theme="@style/Theme.AppCompat.Light.DarkActionBar" />
 
+        <!-- Notification Listener Service -->
 
     </application>
 </manifest>
